@@ -1,17 +1,19 @@
 #include <stddef.h> //size_t
-#include <stdlib.h> //malloc exit
+#include <stdlib.h> //malloc, exit, srand and rand
 #include <stdbool.h> // true & false
 #include <stdio.h>
 #include <stdarg.h>
+#include <string.h> // strcmp
 #include <stdint.h> //uint8_t
 #include <math.h> // pow
+#include <time.h> // time
 
-#define ANSI_RED = "\e[0;31m";
-#define ANSI_RST = "\e[0;30m";
+#define ANSI_RED "\033[0;31m"
+#define ANSI_RST "\033[0;30m"
 
 typedef struct Card Card;
 struct Card {
-    uint8_t, data;
+    uint8_t data;
     Card *next;
 };
 
@@ -25,18 +27,21 @@ struct CardList {
 void my_assert(bool condition, const char *error_message);
 
 //list & card functions
-void list_init(CardList *list);list_sum
+void list_init(CardList *list);
 Card* new_card(uint8_t data);
 void list_push(CardList *list, Card *card);
-Card* list_pop(CardList *list);
-
 //remove card at a specific position "pos"
 Card*  list_remove_at(CardList *list, size_t pos);
 
 //other list & card functions
 void print_card(Card* card);
-void list_print(CardList *list);
+void list_print(CardList *list, bool dealer);
 int list_sum(CardList *list);
+
+// game functions:
+int bet_check(int cash, int pot);
+void deal(CardList *to, CardList *from, size_t how_many);
+
 
 //MAIN
 int main(void) {
@@ -45,16 +50,43 @@ int main(void) {
     // Deck creation:
     list_init(&deck);
     for (int i=1; i<14 ; i++){
-        list(&deck, new_card((i<<4) || 1));
-        list(&deck, new_card((i<<4) || 2));
-        list(&deck, new_card((i<<4) || 4));
-        list(&deck, new_card((i<<4) || 8));
+        list_push(&deck, new_card((i<<4) | 1));
+        list_push(&deck, new_card((i<<4) | 2));
+        list_push(&deck, new_card((i<<4) | 4));
+        list_push(&deck, new_card((i<<4) | 8));
     }
-    list_print(deck);
 
-    // list_init(&player_hand);
-    // list_init(&dealer_hand);
+    // 1. Game Initiation:
+    int cash, pot;
+    cash = 1000;
+    pot = 0;
+    list_init(&player_hand);
+    list_init(&dealer_hand);
+    srand(time(NULL));
 
+    // Game On
+    int bet;
+    while (1){
+        puts("");
+        printf("Player's cash: %d\n", cash);
+        printf("Game's pot: %d\n", pot);
+        // 2. Betting:
+        bet = bet_check(cash, pot);
+        if (bet == -2) break;
+        else if (bet == -1) continue;
+        else {
+            cash -= bet;
+            pot += bet;
+        }
+        // 3. Initial Deal:
+        deal(&player_hand,&deck,2);
+        deal(&dealer_hand,&deck,2);
+        printf("Player's hand: ");
+        list_print(&player_hand,false);
+        printf("Dealer's hand: ");
+        list_print(&dealer_hand,true);
+
+    }
  
     return 0;
 }
@@ -77,7 +109,6 @@ void list_init(CardList *list) {
 Card* new_card(uint8_t data) {
     Card *card = malloc(sizeof (Card));
     my_assert(card == NULL, "new_card: malloc failed");
-
     card->data = data;
     card->next = NULL;
 
@@ -94,9 +125,9 @@ void list_push(CardList *list, Card *card) {
 }
 
 void print_card(Card* card){
-    int value, suit;
-    value = (card->data >> 4);
-    suit = card->data && 15; // 00001111 = 15 is the mask to only get the suit 
+    uint8_t value, suit;
+    value = card->data >> 4;
+    suit = card->data & 15; // 00001111 = 15 is the mask to only get the suit 
     if (suit == 1 || suit == 4) printf(ANSI_RED);
 
     switch (value)
@@ -117,22 +148,26 @@ void print_card(Card* card){
         my_assert(1,"print card: error in card suit\n");
         break;
     }
-
     printf(ANSI_RST);
+    
 
 }
 
-void list_print(CardList *list) {
-    // Node *iter = list->head;
-    // while (iter != NULL) {
-    //     // ...
-    //     iter = iter->next;
-    // }
-
-    for (Card *it = list->head; it; it = it->next) {
-        printf("%d -> ", it->data);
+void list_print(CardList *list, bool dealer) {
+    Card *it = list->head;
+    size_t i=0;
+    while (it) {
+        if (dealer==true && i==list->len-1){
+            printf("??");
+            break;
+        }
+        print_card(it);
+        it = it->next;
+        if (it == NULL) break;
+        printf(" & ");
+        i++;
     }
-    printf("null\n");
+    printf("\n");
 }
 
 //remove card at a specific position "pos"
@@ -165,4 +200,45 @@ Card*  list_remove_at(CardList *list, size_t pos) {
     list->len -=1;
 
     return curr;
+}
+
+int bet_check(int cash, int pot){
+    if (pot ==0 && cash < 10){
+        printf("you have no more cash: GGAME OVER!\n\n");
+        return -2;
+    }
+
+    int bet;
+    char input[7]; // buffer to store user input
+    printf("please enter your bet (in multiplications of 10) or quit ('q'):");
+    fgets(input, sizeof(input), stdin);  // Read the input as a string
+    // Remove newline character that fgets() might include:
+    input[strcspn(input, "\n")] = '\0';
+
+    if (strcmp(input, "q") == 0) {
+        printf("You chose to quit.\nCongratulation!you earned %d\n",cash);
+        return -2;
+    }
+    bet = atoi(input);
+    if (bet == 0 && strcmp(input, "0") != 0) {
+        // Check if the input was something like "abc", "q12", or "0abc"
+        printf("Invalid input\nPlease enter an integer\n");
+        return -1;
+    }
+    if (strcmp(input, "0") == 0 && pot == 0) {
+        printf("Invalid input: you can't bet '0' because there is no money in the pot\nPlease enter a valid bet\n");
+        return -1;
+    }
+    if (bet < 0 || bet % 10 != 0) {
+        printf("Invalid input: the bet must be positive and in multiplication of 10\nPlease enter a valid bet\n");
+        return -1;
+    }
+    return bet;
+}
+
+void deal(CardList *to, CardList *from, size_t how_many){
+    my_assert(how_many > (from->len), "not enough cards in list to deal from");
+    for (size_t i=1; i<=how_many; i++){
+        list_push(to, list_remove_at(from,rand() % from->len));
+    }
 }
