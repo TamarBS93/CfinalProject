@@ -9,7 +9,11 @@
 #include <time.h> // time
 
 #define ANSI_RED "\033[0;31m"
+#define ANSI_BLUE "\033[0;34m"
+#define ANSI_GREEN "\033[0;32m"
+#define ANSI_MAG "\033[0;35m"
 #define ANSI_RST "\033[0;30m"
+
 
 typedef struct Card Card;
 struct Card {
@@ -66,12 +70,18 @@ int main(void) {
     list_init(&dealer_hand);
     srand(time(NULL));
 
+    //ansi clear screen
+    printf("\033[2J\033[H");
+
     // Game On
     int bet;
     while (1){
+      
+        printf(ANSI_BLUE);
         puts("");
         printf("Player's cash: %d\n", cash);
         printf("Game's pot: %d\n\n", pot);
+        printf(ANSI_RST);
         // 2. Betting:
         bet = bet_check(cash, pot); // -2: quit, -1: invalid input else: player's bet
         if (bet == -2) break;
@@ -83,14 +93,14 @@ int main(void) {
         // 3. Initial Deal:
         deal(&player_hand,&deck,2);
         deal(&dealer_hand,&deck,2);
-        printf("Player's hand: ");
+        printf(ANSI_BLUE"Player's hand: "ANSI_RST);
         list_print(&player_hand,false);
-        printf("Dealer's hand: ");
+        printf(ANSI_BLUE"Dealer's hand: "ANSI_RST);
         list_print(&dealer_hand,true);
         puts("");
 
         if (black_jack_check(&player_hand) == 21){
-            printf("Black Jack!\n");
+            printf(ANSI_GREEN"Black Jack!\n"ANSI_RST);
             cash += pot*2.5;
             pot = 0;
             reset_cards(&player_hand, &dealer_hand, &deck);
@@ -102,19 +112,24 @@ int main(void) {
             {
             case -1: //loss
                 reset_cards(&player_hand, &dealer_hand, &deck);
-                printf("you lost your bet.\n");
+                printf(ANSI_MAG"you lost your bet (%d).\n"ANSI_RST, bet);
                 pot = 0;
                 break;
             case 0: // tie
+                printf("You don't win any cash\n"ANSI_RST);
                 reset_cards(&player_hand, &dealer_hand, &deck);
                 break;
             case 1: // player win
+                printf("You had %d!\n", cash);
+                printf("You won %d!\n"ANSI_RST, pot*2);
                 reset_cards(&player_hand, &dealer_hand, &deck);
                 cash += pot*2;
                 pot = 0;
                 break; 
             case 2: // black jack
-                printf("Black Jack!\n");
+                printf(ANSI_GREEN"Black Jack!\n");
+                printf("You had %d!\n", cash);
+                printf("You won %d!\n"ANSI_RST, bet*2.5);
                 reset_cards(&player_hand, &dealer_hand, &deck);
                 cash += pot*2.5;
                 pot = 0;
@@ -130,7 +145,9 @@ int main(void) {
 
 void my_assert(bool condition, const char *error_message) {
     if (condition) {
+        printf(ANSI_RED);
         fprintf(stderr, "%s\n", error_message);
+        printf(ANSI_RST);
         exit(EXIT_FAILURE);
     }
 }
@@ -246,11 +263,11 @@ Card*  list_remove_at(CardList *list, size_t pos) {
 
 int bet_check(int cash, int pot){
     if (pot == 0 && cash < 10){
-        printf("Out of cash to bet. Game Over!\n\n");
+        printf(ANSI_RED"Out of cash to bet. Game Over!\n\n"ANSI_RST);
         return -2;
     }
     int bet;
-    printf("Do you want to bet? [Y/N]?");
+    printf(ANSI_BLUE"Do you want to bet? [Y/N]?"ANSI_RST);
     //clear_input_buffer();
     char ch;
     scanf(" %c", &ch);
@@ -260,36 +277,51 @@ int bet_check(int cash, int pot){
     {
     case 'N':
     case 'n':
-        printf("You chose to quit.\nYou earned %d cash!\n",cash);
+        //ansi clear screen
+        printf("\033[2J\033[H");
+        printf(ANSI_MAG"You chose to quit.\nYou earned %d cash!\n"ANSI_RST,cash);
         return -2;
     case 'Y':
     case 'y':
-        printf("please enter your bet (in multiplications of 10): ");
-        scanf(" %d", &bet);
+        //ansi clear screen
+        printf("\033[2J\033[H");
+        printf(ANSI_BLUE);
+        printf("Player's cash: %d\n", cash);
+        printf("Game's pot: %d\n\n", pot);
         break;
     default:
-        printf("Invalid input\nplease try again\n");
+        //ansi clear screen
+        printf("\033[2J\033[H");
+        printf(ANSI_RED"Invalid input\nplease try again\n"ANSI_RST);
         return -1;
     }
+
+    printf(ANSI_BLUE"please enter your bet (in multiplications of 10): "ANSI_RST);
+    scanf(" %d", &bet);
+
     if (bet == 0 && pot == 0) {
         // bet with 0 cash
-        printf("Invalid input:\nYou can't bet '0' because there is no money in the pot\nPlease enter a valid bet\n");
+        printf(ANSI_RED"Invalid input:\nYou can't bet '0' because there is no money in the pot\nPlease enter a valid bet\n"ANSI_RST);
         return -1;
     }
     if (bet < 0 || bet % 10 != 0) {
         // invalid integer 
-        printf("Invalid input:\nBet must be a positive multiplication of 10\nPlease enter a valid bet\n");
+        printf(ANSI_RED"Invalid input:\nBet must be a positive multiplication of 10\nPlease enter a valid bet\n"ANSI_RST);
         return -1;
     }
     if (bet > cash) {
-        // invalid bet 
-        printf("Invalid input:\nYou don't have enough cash\nPlease enter a valid bet\n");
+        // invalid bet
+        //ansi clear screen
+        printf("\033[2J\033[H"); 
+        printf(ANSI_RED"Invalid input:\nYou don't have enough cash\nPlease enter a valid bet\n"ANSI_RST);
         return -1;
     }
-    puts("");
-    printf("Your bet: %d\n", bet);
+    //ansi clear screen
+    printf("\033[2J\033[H");    
+    printf(ANSI_BLUE);
     printf("Player's cash: %d\n", cash-bet);
     printf("Game's pot: %d\n\n", pot+bet);
+    printf(ANSI_RST);
     return bet;
 }
 
@@ -322,31 +354,39 @@ int black_jack_check(CardList *list) {
 int hit_or_stand(CardList *player, CardList *dealer, CardList *deck){
     char choice='h';
     int sum;
-    printf("What is your next move? Hit ('h') or Stand ('s')? ");
+    printf(ANSI_BLUE"What is your next move? Hit ('h') or Stand ('s')? "ANSI_RST);
     scanf(" %c", &choice);
     clear_input_buffer();
+    //ansi clear screen
+    printf("\033[2J\033[H");
+
     if (choice =='s'){ //strcmp returns 0 if the strings are the same
-        printf("Your hand: ");
+        printf(ANSI_BLUE"Your hand: "ANSI_RST);
         list_print(player, false);
         return dealer_draw(player, dealer, deck);
     }
     else if (choice == 'h'){
         deal(player, deck, 1);
-        printf("Your hand: ");
+        printf(ANSI_BLUE"Your hand: "ANSI_RST);
         list_print(player, false);
-        printf("Dealer's hand: ");
+        printf(ANSI_BLUE"Dealer's hand: "ANSI_RST);
         list_print(dealer,true);
         puts("");
         sum = black_jack_check(player);
         if (sum==21) return 2;
         if (sum>21){
-            printf("bust!\n");
+            printf(ANSI_MAG"bust!\n"ANSI_RST);
             return -1; // lose bet
         }
         return hit_or_stand(player, dealer, deck);
     }
     else{
-        printf("Invalid input: type 'h' (Hit) or 's' (Stand)\n");
+        printf(ANSI_RED"Invalid input: type 'h' (Hit) or 's' (Stand)\n"ANSI_RST);
+        printf(ANSI_BLUE"Player's hand: "ANSI_RST);
+        list_print(player,false);
+        printf(ANSI_BLUE"Dealer's hand: "ANSI_RST);
+        list_print(dealer,true);
+        puts("");
         return hit_or_stand(player, dealer, deck);
 
     }
@@ -363,22 +403,22 @@ int dealer_draw(CardList *player, CardList *dealer, CardList *deck){
         dealer_sum = black_jack_check(dealer);
         if (dealer_sum >= 17) break;
     }
-    printf("dealer's hand: ");
+    printf(ANSI_BLUE"dealer's hand: "ANSI_RST);
     list_print(dealer, false);
     puts("");
     if (dealer_sum > 21){
-        printf("dealer bust!\n");
+        printf(ANSI_GREEN"dealer bust!\n"ANSI_RST);
         return 1;
     }
     if (dealer_sum < player_sum){
-        printf("you win!\n");
+        printf(ANSI_GREEN"you win!\n"ANSI_RST);
         return 1;
     } 
     if (dealer_sum == player_sum){
-        printf("tie!\n");
+        printf(ANSI_MAG"tie!\n"ANSI_RST);
         return 0;
     } 
-    printf("dealer win!\n");
+    printf(ANSI_MAG"dealer win!\n"ANSI_RST);
     return -1;
 }
 
